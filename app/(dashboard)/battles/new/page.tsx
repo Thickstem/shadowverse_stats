@@ -80,11 +80,24 @@ export default function NewBattlePage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="playerDeckName">使用デッキ名</Label>
-                <Input
-                  id="playerDeckName"
-                  placeholder="例: 進化ドラゴン"
-                  {...register("playerDeckName")}
+                <Label>使用デッキ</Label>
+                <Controller
+                  name="playerDeckName"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="デッキを選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {decks?.map((deck) => (
+                          <SelectItem key={deck.id} value={deck.name}>
+                            {deck.name} ({deck.archetype})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 />
                 {errors.playerDeckName && (
                   <p className="text-sm text-destructive">{errors.playerDeckName.message}</p>

@@ -1,7 +1,14 @@
+"use client";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Target, BarChart3, PieChart } from "lucide-react";
+import { trpc } from "@/lib/trpc/client";
 
 export default function StatisticsPage() {
+  const { data: overview } = trpc.statistics.getOverview.useQuery();
+  const { data: deckStats } = trpc.statistics.getDeckStats.useQuery();
+  const { data: matchupStats } = trpc.statistics.getMatchupStats.useQuery();
+
   return (
     <div className="space-y-6">
       <div>
@@ -16,7 +23,7 @@ export default function StatisticsPage() {
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">127</div>
+            <div className="text-2xl font-bold">{overview?.totalBattles || 0}</div>
             <p className="text-xs text-muted-foreground">今シーズン</p>
           </CardContent>
         </Card>
@@ -27,8 +34,12 @@ export default function StatisticsPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">65.2%</div>
-            <p className="text-xs text-muted-foreground">83勝 44敗</p>
+            <div className="text-2xl font-bold">
+              {overview?.winRate ? `${overview.winRate.toFixed(1)}%` : '0%'}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {overview?.wins || 0}勝 {overview?.losses || 0}敗
+            </p>
           </CardContent>
         </Card>
         
@@ -38,19 +49,23 @@ export default function StatisticsPage() {
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">ドラゴン</div>
-            <p className="text-xs text-muted-foreground">52対戦 (41%)</p>
+            <div className="text-2xl font-bold">
+              {overview?.mostUsedDeck?.deckArchetype || 'なし'}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {overview?.mostUsedDeck?.battleCount || 0}対戦
+            </p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">平均ターン数</CardTitle>
+            <CardTitle className="text-sm font-medium">現在の連勝</CardTitle>
             <PieChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">7.8</div>
-            <p className="text-xs text-muted-foreground">ターン</p>
+            <div className="text-2xl font-bold">{overview?.currentWinStreak || 0}</div>
+            <p className="text-xs text-muted-foreground">連勝</p>
           </CardContent>
         </Card>
       </div>
@@ -63,49 +78,26 @@ export default function StatisticsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-blue-500 rounded"></div>
-                  <span>ドラゴン</span>
+              {deckStats && deckStats.length > 0 ? (
+                deckStats.map((deck) => (
+                  <div key={deck.deckId} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                      <span>{deck.deckName}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">{deck.winRate.toFixed(1)}%</div>
+                      <div className="text-sm text-muted-foreground">
+                        {deck.wins}勝 {deck.losses}敗
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4 text-muted-foreground">
+                  データがありません
                 </div>
-                <div className="text-right">
-                  <div className="font-medium">72.0%</div>
-                  <div className="text-sm text-muted-foreground">36勝 14敗</div>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-green-500 rounded"></div>
-                  <span>ビショップ</span>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">68.2%</div>
-                  <div className="text-sm text-muted-foreground">23勝 12敗</div>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-purple-500 rounded"></div>
-                  <span>ウィッチ</span>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">55.0%</div>
-                  <div className="text-sm text-muted-foreground">11勝 9敗</div>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-red-500 rounded"></div>
-                  <span>ロイヤル</span>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">50.0%</div>
-                  <div className="text-sm text-muted-foreground">8勝 8敗</div>
-                </div>
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -117,45 +109,23 @@ export default function StatisticsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span>vs ネクロマンサー</span>
-                <div className="text-right">
-                  <div className="font-medium">78.6%</div>
-                  <div className="text-sm text-muted-foreground">11勝 3敗</div>
+              {matchupStats && matchupStats.length > 0 ? (
+                matchupStats.map((matchup) => (
+                  <div key={matchup.opponentArchetype} className="flex items-center justify-between">
+                    <span>vs {matchup.opponentArchetype}</span>
+                    <div className="text-right">
+                      <div className="font-medium">{matchup.winRate.toFixed(1)}%</div>
+                      <div className="text-sm text-muted-foreground">
+                        {matchup.wins}勝 {matchup.losses}敗
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4 text-muted-foreground">
+                  データがありません
                 </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span>vs ウィッチ</span>
-                <div className="text-right">
-                  <div className="font-medium">71.4%</div>
-                  <div className="text-sm text-muted-foreground">15勝 6敗</div>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span>vs ロイヤル</span>
-                <div className="text-right">
-                  <div className="font-medium">62.5%</div>
-                  <div className="text-sm text-muted-foreground">20勝 12敗</div>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span>vs ドラゴン</span>
-                <div className="text-right">
-                  <div className="font-medium">58.3%</div>
-                  <div className="text-sm text-muted-foreground">14勝 10敗</div>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span>vs ビショップ</span>
-                <div className="text-right">
-                  <div className="font-medium">45.5%</div>
-                  <div className="text-sm text-muted-foreground">10勝 12敗</div>
-                </div>
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>

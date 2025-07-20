@@ -175,11 +175,59 @@ export const statisticsRouter = router({
     const monthly = monthlyStats[0];
     const monthlyWinRate = monthly.monthlyBattles > 0 ? (monthly.monthlyWins / monthly.monthlyBattles) * 100 : 0;
 
-    // Overall stats
-    const overallStats = await this.getOverview({ ctx });
+    // Overall stats - get basic stats directly
+    const totalStats = await ctx.db
+      .select({
+        totalBattles: count(),
+        wins: sql<number>`count(case when ${battles.result} = 'win' then 1 end)`,
+        losses: sql<number>`count(case when ${battles.result} = 'loss' then 1 end)`,
+        draws: sql<number>`count(case when ${battles.result} = 'draw' then 1 end)`,
+      })
+      .from(battles)
+      .where(eq(battles.userId, ctx.user.id));
+
+    const stats = totalStats[0];
+    const winRate = stats.totalBattles > 0 ? (stats.wins / stats.totalBattles) * 100 : 0;
+
+    // Most used deck
+    const mostUsedDeck = await ctx.db
+      .select({
+        deckName: decks.name,
+        deckArchetype: decks.archetype,
+        battleCount: count(),
+      })
+      .from(battles)
+      .leftJoin(decks, eq(battles.playerDeckId, decks.id))
+      .where(eq(battles.userId, ctx.user.id))
+      .groupBy(decks.id, decks.name, decks.archetype)
+      .orderBy(desc(count()))
+      .limit(1);
+
+    // Win streak calculation (simplified)
+    const recentBattles = await ctx.db
+      .select({ result: battles.result })
+      .from(battles)
+      .where(eq(battles.userId, ctx.user.id))
+      .orderBy(desc(battles.playedAt))
+      .limit(50);
+
+    let currentWinStreak = 0;
+    for (const battle of recentBattles) {
+      if (battle.result === 'win') {
+        currentWinStreak++;
+      } else {
+        break;
+      }
+    }
 
     return {
-      ...overallStats,
+      totalBattles: stats.totalBattles,
+      wins: stats.wins,
+      losses: stats.losses,
+      draws: stats.draws,
+      winRate,
+      mostUsedDeck: mostUsedDeck[0] || null,
+      currentWinStreak,
       monthlyBattles: monthly.monthlyBattles,
       monthlyWinRate,
     };

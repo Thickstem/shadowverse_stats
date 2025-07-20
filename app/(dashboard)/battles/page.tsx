@@ -1,9 +1,43 @@
+"use client";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Plus, Filter } from "lucide-react";
+import { trpc } from "@/lib/trpc/client";
+import { format } from "date-fns";
+import { ja } from "date-fns/locale";
 
 export default function BattlesPage() {
+  const { data: battlesData } = trpc.battles.list.useQuery({ limit: 20 });
+
+  const getResultBadge = (result: string) => {
+    const baseClasses = "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium";
+    switch (result) {
+      case 'win':
+        return `${baseClasses} bg-green-100 text-green-800`;
+      case 'loss':
+        return `${baseClasses} bg-red-100 text-red-800`;
+      case 'draw':
+        return `${baseClasses} bg-yellow-100 text-yellow-800`;
+      default:
+        return `${baseClasses} bg-gray-100 text-gray-800`;
+    }
+  };
+
+  const getResultText = (result: string) => {
+    switch (result) {
+      case 'win':
+        return '勝利';
+      case 'loss':
+        return '敗北';
+      case 'draw':
+        return '引き分け';
+      default:
+        return result;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -32,61 +66,52 @@ export default function BattlesPage() {
           <CardDescription>最新の対戦記録から表示</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-6 gap-4 py-2 border-b font-medium text-sm">
-              <div>日時</div>
-              <div>使用デッキ</div>
-              <div>対戦相手</div>
-              <div>結果</div>
-              <div>ターン数</div>
-              <div>操作</div>
+          {battlesData && battlesData.battles.length > 0 ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-6 gap-4 py-2 border-b font-medium text-sm">
+                <div>日時</div>
+                <div>使用デッキ</div>
+                <div>対戦相手</div>
+                <div>結果</div>
+                <div>ターン数</div>
+                <div>操作</div>
+              </div>
+              
+              {battlesData.battles.map((battle) => (
+                <div key={battle.id} className="grid grid-cols-6 gap-4 py-3 border-b">
+                  <div className="text-sm text-muted-foreground">
+                    {battle.playedAt && format(new Date(battle.playedAt), 'MM/dd HH:mm', { locale: ja })}
+                  </div>
+                  <div>
+                    <div className="font-medium">{battle.deckName || 'デッキ'}</div>
+                    <div className="text-sm text-muted-foreground">{battle.deckArchetype}</div>
+                  </div>
+                  <div>{battle.opponentArchetype}</div>
+                  <div>
+                    <span className={getResultBadge(battle.result)}>
+                      {getResultText(battle.result)}
+                    </span>
+                  </div>
+                  <div>{battle.turnCount || '-'}</div>
+                  <div>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/dashboard/battles/${battle.id}`}>
+                        詳細
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
-            
-            <div className="grid grid-cols-6 gap-4 py-3 border-b">
-              <div className="text-sm text-muted-foreground">2024-01-20 14:30</div>
-              <div>ドラゴン</div>
-              <div>ネクロマンサー</div>
-              <div>
-                <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                  勝利
-                </span>
-              </div>
-              <div>7</div>
-              <div>
-                <Button variant="outline" size="sm">詳細</Button>
-              </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              対戦記録がありません。
+              <Link href="/dashboard/battles/new" className="text-primary hover:underline ml-1">
+                最初の対戦を記録
+              </Link>
+              してみましょう。
             </div>
-            
-            <div className="grid grid-cols-6 gap-4 py-3 border-b">
-              <div className="text-sm text-muted-foreground">2024-01-20 13:15</div>
-              <div>ドラゴン</div>
-              <div>ロイヤル</div>
-              <div>
-                <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
-                  敗北
-                </span>
-              </div>
-              <div>9</div>
-              <div>
-                <Button variant="outline" size="sm">詳細</Button>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-6 gap-4 py-3 border-b">
-              <div className="text-sm text-muted-foreground">2024-01-20 12:00</div>
-              <div>ビショップ</div>
-              <div>ウィッチ</div>
-              <div>
-                <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                  勝利
-                </span>
-              </div>
-              <div>6</div>
-              <div>
-                <Button variant="outline" size="sm">詳細</Button>
-              </div>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

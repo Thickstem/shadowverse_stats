@@ -1,9 +1,44 @@
+"use client";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { TrendingUp, Trophy, Calendar, Target } from "lucide-react";
+import { trpc } from "@/lib/trpc/client";
+import { formatDistanceToNow } from "date-fns";
+import { ja } from "date-fns/locale";
 
 export default function Dashboard() {
+  const { data: stats } = trpc.statistics.getDashboard.useQuery();
+  const { data: recentBattles } = trpc.battles.getRecent.useQuery({ limit: 5 });
+
+  const getResultBadge = (result: string) => {
+    const baseClasses = "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium";
+    switch (result) {
+      case 'win':
+        return `${baseClasses} bg-green-100 text-green-800`;
+      case 'loss':
+        return `${baseClasses} bg-red-100 text-red-800`;
+      case 'draw':
+        return `${baseClasses} bg-yellow-100 text-yellow-800`;
+      default:
+        return `${baseClasses} bg-gray-100 text-gray-800`;
+    }
+  };
+
+  const getResultText = (result: string) => {
+    switch (result) {
+      case 'win':
+        return '勝利';
+      case 'loss':
+        return '敗北';
+      case 'draw':
+        return '引き分け';
+      default:
+        return result;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -18,9 +53,11 @@ export default function Dashboard() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">65.2%</div>
+            <div className="text-2xl font-bold">
+              {stats?.winRate ? `${stats.winRate.toFixed(1)}%` : '0%'}
+            </div>
             <p className="text-xs text-muted-foreground">
-              +2.1% from last month
+              {stats?.wins || 0}勝 {stats?.losses || 0}敗
             </p>
           </CardContent>
         </Card>
@@ -31,35 +68,37 @@ export default function Dashboard() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">42</div>
+            <div className="text-2xl font-bold">{stats?.monthlyBattles || 0}</div>
             <p className="text-xs text-muted-foreground">
-              +18% from last month
+              勝率 {stats?.monthlyWinRate ? `${stats.monthlyWinRate.toFixed(1)}%` : '0%'}
             </p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">最高連勝</CardTitle>
+            <CardTitle className="text-sm font-medium">現在の連勝</CardTitle>
             <Trophy className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">8</div>
+            <div className="text-2xl font-bold">{stats?.currentWinStreak || 0}</div>
             <p className="text-xs text-muted-foreground">
-              Personal best this season
+              最新の連勝記録
             </p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">お気に入りデッキ</CardTitle>
+            <CardTitle className="text-sm font-medium">最多使用デッキ</CardTitle>
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">ドラゴン</div>
+            <div className="text-2xl font-bold">
+              {stats?.mostUsedDeck?.deckArchetype || 'なし'}
+            </div>
             <p className="text-xs text-muted-foreground">
-              72% win rate
+              {stats?.mostUsedDeck?.battleCount || 0}回使用
             </p>
           </CardContent>
         </Card>
@@ -69,37 +108,34 @@ export default function Dashboard() {
         <Card className="col-span-4">
           <CardHeader>
             <CardTitle>最近の対戦</CardTitle>
-            <CardDescription>直近10戦の結果</CardDescription>
+            <CardDescription>直近の対戦結果</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">ドラゴン vs ネクロマンサー</p>
-                  <p className="text-sm text-muted-foreground">2時間前</p>
+              {recentBattles && recentBattles.length > 0 ? (
+                recentBattles.map((battle) => (
+                  <div key={battle.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">
+                        {battle.deckArchetype || 'デッキ'} vs {battle.opponentArchetype}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {battle.playedAt && formatDistanceToNow(new Date(battle.playedAt), { 
+                          addSuffix: true, 
+                          locale: ja 
+                        })}
+                      </p>
+                    </div>
+                    <span className={getResultBadge(battle.result)}>
+                      {getResultText(battle.result)}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  まだ対戦記録がありません
                 </div>
-                <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                  勝利
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">ドラゴン vs ロイヤル</p>
-                  <p className="text-sm text-muted-foreground">4時間前</p>
-                </div>
-                <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
-                  敗北
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">ビショップ vs ウィッチ</p>
-                  <p className="text-sm text-muted-foreground">6時間前</p>
-                </div>
-                <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                  勝利
-                </span>
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>
