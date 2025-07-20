@@ -11,8 +11,22 @@ import { battleSchema, type BattleFormData } from "@/lib/validations/battle";
 import { DECK_ARCHETYPES, RESULT_OPTIONS } from "@/lib/constants/decks";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { trpc } from "@/lib/trpc/client";
+import { useRouter } from "next/navigation";
 
 export default function NewBattlePage() {
+  const router = useRouter();
+  
+  const { data: decks } = trpc.decks.list.useQuery();
+  const createBattleMutation = trpc.battles.create.useMutation({
+    onSuccess: () => {
+      router.push('/dashboard/battles');
+    },
+    onError: (error) => {
+      console.error('Error creating battle:', error);
+    },
+  });
+
   const {
     register,
     control,
@@ -24,9 +38,19 @@ export default function NewBattlePage() {
 
   const onSubmit = async (data: BattleFormData) => {
     try {
-      console.log("Submitting battle data:", data);
-      // TODO: API call to save battle data
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
+      const selectedDeck = decks?.find(deck => deck.name === data.playerDeckName);
+      if (!selectedDeck) {
+        throw new Error('Selected deck not found');
+      }
+
+      await createBattleMutation.mutateAsync({
+        playerDeckId: selectedDeck.id,
+        opponentArchetype: data.opponentArchetype,
+        result: data.result,
+        turnCount: data.turnCount,
+        damageDealt: data.damageDealt,
+        damageReceived: data.damageReceived,
+      });
     } catch (error) {
       console.error("Error submitting battle:", error);
     }
