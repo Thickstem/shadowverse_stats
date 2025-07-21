@@ -52,11 +52,56 @@ CLERK_SECRET_KEY="sk_test_xxxxx"
 ```
 
 #### Webhook設定
-1. Clerk ダッシュボードの "Webhooks" へ
-2. "Add endpoint" をクリック
-3. Endpoint URL: `http://localhost:3000/api/webhooks/clerk`（開発時）
-4. イベント選択: `user.created`, `user.updated`, `user.deleted`
-5. Webhook secret をコピー
+
+⚠️ **重要**: 開発環境では `localhost` は使用できません。以下の方法でWebhookを設定してください。
+
+##### 方法1: ngrok を使用（推奨）
+
+1. **ngrokインストール**
+```bash
+# macOSの場合
+brew install ngrok
+
+2. **アプリケーション起動**
+```bash
+npm run dev
+```
+
+3. **新しいターミナルでngrok起動**
+```bash
+ngrok http 3000
+```
+
+4. **ngrok URL確認**
+```
+Session Status                online
+Account                       your-account (Plan: Free)
+Version                       3.1.0
+Region                        Japan (jp)
+Latency                       -
+Web Interface                 http://127.0.0.1:4040
+Forwarding                    https://abc123.ngrok.io -> http://localhost:3000
+```
+
+5. **Clerk Webhook設定**
+- Clerk ダッシュボードの "Configure" → "Webhooks" へ
+- "Add endpoint" をクリック
+- Endpoint URL: `https://abc123.ngrok.io/api/webhooks/clerk` （⚠️ ngrokのHTTPS URLを使用）
+- イベント選択: `user.created`, `user.updated`, `user.deleted`
+- "Create" をクリック
+- Webhook secret をコピー
+
+##### 方法2: 一時的にVercelデプロイ
+
+```bash
+# 一時的に本番デプロイしてWebhook設定
+vercel --prod
+
+# 表示されたURLを使用
+# https://your-project-name.vercel.app/api/webhooks/clerk
+```
+
+##### Webhook設定完了後
 
 ```bash
 # .env.local に追加
@@ -171,9 +216,61 @@ npm run db:studio
 - リダイレクトURL設定確認
 
 #### Webhook エラー
-- エンドポイントURL確認
-- イベント選択確認
-- ngrokを使用した開発時のWebhookテスト
+
+##### "Invalid URL" エラーの解決
+```bash
+# ❌ 無効なURL例
+http://localhost:3000/api/webhooks/clerk        # localhostは外部から到達不可
+https://example.com/api/webhooks/clerk/          # 末尾スラッシュあり
+https://example.com/webhooks/clerk               # /api/ パス抜け
+
+# ✅ 正しいURL例  
+https://abc123.ngrok.io/api/webhooks/clerk       # ngrok HTTPS URL
+https://your-app.vercel.app/api/webhooks/clerk   # Vercel本番URL
+```
+
+##### 開発環境でのWebhookテスト手順
+1. **ngrok起動確認**
+```bash
+# ngrok状態確認
+curl http://localhost:4040/api/tunnels
+
+# ngrok Web UI確認
+open http://127.0.0.1:4040
+```
+
+2. **エンドポイント動作確認**
+```bash
+# Webhook エンドポイントテスト
+curl -X POST https://your-ngrok-url.ngrok.io/api/webhooks/clerk \
+  -H "Content-Type: application/json" \
+  -d '{"test": "webhook"}'
+```
+
+3. **Clerkダッシュボードで配信履歴確認**
+- Webhooks → 作成したWebhook → "Recent deliveries" タブ
+- エラーメッセージとレスポンスコード確認
+
+##### よくあるWebhookエラーと解決法
+```bash
+# Error: "URL not reachable"
+# 原因: ngrokが停止またはNext.jsアプリが停止
+# 解決: 両方のプロセス再起動
+
+# Error: "Signature verification failed"  
+# 原因: CLERK_WEBHOOK_SECRET が間違っている
+# 解決: Clerkダッシュボードから正しいSecretを取得
+
+# Error: "500 Internal Server Error"
+# 原因: データベース接続エラーまたはコードエラー
+# 解決: npm run dev のコンソールでエラーログ確認
+```
+
+##### Webhook設定のベストプラクティス
+- 開発時は必ずngrokのHTTPS URLを使用
+- Webhook secret は環境変数で管理
+- ngrok URL変更時はClerkの設定も更新
+- 本番デプロイ時にWebhook URLを本番ドメインに変更
 
 ### デバッグコマンド
 
